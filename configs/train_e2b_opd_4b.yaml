@@ -1,0 +1,112 @@
+# E2b: most-likely-to-work OPD into prompt space.
+#
+# Identity: on-policy KL from a frozen teacher into an x-only soft prefix
+# (student weights frozen). Teacher never sees y*.
+#
+# Why this recipe (literature + our failures):
+#   - Teacher = Qwen3-4B, not 14B. Every 2026 Qwen3 OPD paper that moves
+#     a 1.7B student uses a 4B teacher; 14B→1.7B is an outlier and our
+#     14B run was ~flat vs base.
+#   - Advantage gate: skip KL when the student's own full rollout is already
+#     correct (don't overwrite native CoT).
+#   - Early-window KL (ESR): generate a complete answer for gating, but
+#     distill only the first 512 tokens — late tokens on a wrong prefix are
+#     where teacher signal decays.
+#   - Hard slice + contextual encoder + stronger L2.
+model:
+  name_or_path: Qwen/Qwen3-1.7B
+  rewriter_name_or_path: Qwen/Qwen3-1.7B
+  teacher_name_or_path: Qwen/Qwen3-4B
+  dtype: auto
+  device: auto
+  enable_thinking: true
+
+rewrite:
+  k: 1
+  style: hint
+  few_shot: false
+  inference_validate: false
+
+rollout:
+  g: 1
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  max_new_tokens: 8192
+  append_boxed_instruction: true
+
+reward:
+  clip_c: 5.0
+  grader: math_verify
+
+outer:
+  enabled: false
+
+inner:
+  enabled: true
+  mode: imitation
+
+train:
+  steps: 1
+  seed: 42
+  scoring_batch_size: 1
+  output_dir: ${PSSD_ROOT}/outputs/prefix_e2b_opd_4b
+
+data:
+  train_path: ${PSSD_ROOT}/data/opsd_hard_train_split.jsonl
+  eval_path: ${PSSD_ROOT}/data/aime24.jsonl
+  max_problems: 30
+
+wandb:
+  enabled: true
+  project: pssd
+  entity: null
+  run_name: e2b_opd_4b_gated_early
+  mode: online
+
+icps:
+  n_tokens: 64
+  bottleneck: 512
+  encoder_input: context
+  distill: opd
+  opsd_advantage_gate: true
+  opsd_gate_mode: student_wrong
+  # ---- CE warm-start ----
+  ce_epochs: 1
+  ce_steps: 300
+  ce_batch_size: 4
+  ce_grad_accum: 2
+  ce_early_stop_patience: 120
+  ce_early_stop_min_delta: 0.002
+  ce_early_stop_min_steps: 150
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  max_grad_norm: 0.5
+  max_prompt_tokens: 1536
+  max_target_tokens: 4096
+  prefix_l2_coef: 1.0e-3
+  # ---- OPD-KL: 4B teacher, early window ----
+  opsd_steps: 400
+  opsd_batch_size: 4
+  opsd_grad_accum: 1
+  opsd_max_new_tokens: 4096
+  opsd_kl_max_tokens: 512
+  opsd_temperature: 0.6
+  opsd_kl_clip: 5.0
+  opsd_kl_topk: 64
+  opsd_kl_chunk: 64
+  opsd_lr_scale: 0.25
+  opsd_early_stop_patience: 150
+  opsd_early_stop_min_delta: 0.003
+  opsd_early_stop_min_steps: 200
+  log_every: 5
+  save_every: 200
+  opsd_save_every: 100
+  use_vllm_base: true
+  vllm_gpu_memory_utilization: 0.75
+  vllm_max_model_len: 20480
+  prefer_zero_if_nonpositive: true
+  g_score: 1
+  n_solve: 1
+  max_eval_problems: 30
+  eval_every: 0

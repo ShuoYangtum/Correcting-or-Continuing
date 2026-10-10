@@ -1,0 +1,98 @@
+# Same full-FT OPD recipe as E2b full, but reverse KL(p_S || p_T).
+# Gate off; early-stop cannot fire before 500 opt steps. Batch 4 because
+# H200 training used ~25GB / 141GB at batch 1.
+model:
+  name_or_path: Qwen/Qwen3-1.7B
+  rewriter_name_or_path: Qwen/Qwen3-1.7B
+  teacher_name_or_path: Qwen/Qwen3-4B
+  dtype: auto
+  device: auto
+  enable_thinking: true
+
+rewrite:
+  k: 1
+  style: hint
+  few_shot: false
+  inference_validate: false
+
+rollout:
+  g: 1
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  max_new_tokens: 16384
+  append_boxed_instruction: true
+
+reward:
+  clip_c: 5.0
+  grader: math_verify
+
+outer:
+  enabled: false
+
+inner:
+  enabled: true
+  mode: imitation
+
+train:
+  steps: 1
+  seed: 42
+  scoring_batch_size: 1
+  output_dir: ${PSSD_ROOT}/outputs/full_e2b_opd_revkl
+
+data:
+  train_path: ${PSSD_ROOT}/data/opsd_hard_train_split.jsonl
+  eval_path: ${PSSD_ROOT}/data/aime24.jsonl
+  max_problems: 30
+
+wandb:
+  enabled: true
+  project: pssd
+  entity: null
+  run_name: e2b_opd_4b_full_revkl
+  mode: online
+
+icps:
+  n_tokens: 64
+  bottleneck: 512
+  encoder_input: context
+  distill: opd
+  student_update: full
+  opsd_advantage_gate: false
+  opsd_gate_mode: student_wrong
+  ce_epochs: 0
+  ce_steps: 0
+  ce_batch_size: 1
+  ce_grad_accum: 1
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  max_prompt_tokens: 1536
+  max_target_tokens: 16384
+  prefix_l2_coef: 0.0
+  opsd_steps: 800
+  opsd_batch_size: 4
+  opsd_grad_accum: 1
+  opsd_max_new_tokens: 16384
+  opsd_kl_max_tokens: 0
+  opsd_kl_seq_chunk: 512
+  opsd_temperature: 0.6
+  opsd_kl_clip: 5.0
+  opsd_kl_topk: 64
+  opsd_kl_chunk: 64
+  opsd_kl_direction: reverse
+  opsd_lr_scale: 1.0
+  opsd_early_stop_patience: 150
+  opsd_early_stop_min_delta: 0.003
+  opsd_early_stop_min_steps: 500
+  log_every: 5
+  save_every: 200
+  opsd_save_every: 100
+  use_vllm_base: true
+  vllm_gpu_memory_utilization: 0.75
+  vllm_max_model_len: 20480
+  prefer_zero_if_nonpositive: false
+  g_score: 1
+  n_solve: 1
+  max_eval_problems: 30
+  eval_every: 0

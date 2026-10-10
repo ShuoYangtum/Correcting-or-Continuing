@@ -1,0 +1,60 @@
+# E0.5 difficulty-stratified ceiling on a larger MATH-olympiad band (real
+# reference solutions). Base scored for all; privileged only for base<1.0.
+# Qwen3 standard thinking sampling (temp=0.6 top_p=0.95 top_k=20), 16k, math_verify.
+model:
+  name_or_path: Qwen/Qwen3-1.7B
+  dtype: auto
+  device: auto
+  enable_thinking: true
+
+rewrite:
+  k: 1
+  style: hint
+  few_shot: false
+  inference_validate: false
+
+rollout:
+  g: 1
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  max_new_tokens: 16384
+  append_boxed_instruction: true
+
+reward:
+  clip_c: 5.0
+  grader: math_verify
+
+outer:
+  enabled: false
+
+inner:
+  enabled: true
+  mode: imitation
+
+train:
+  steps: 1
+  seed: 42
+  scoring_batch_size: 1
+  output_dir: ${PSSD_ROOT}/outputs/eval_e05_band
+
+data:
+  train_path: ${PSSD_ROOT}/data/math_band_e05.jsonl
+  eval_path: ${PSSD_ROOT}/data/math_band_e05.jsonl
+  max_problems: 800
+
+icps:
+  n_tokens: 64
+  bottleneck: 512
+  prefer_zero_if_nonpositive: true
+  max_prompt_tokens: 1536
+  max_target_tokens: 16384
+  opsd_max_new_tokens: 16384
+  use_vllm_base: true
+  vllm_gpu_memory_utilization: 0.9
+  vllm_max_model_len: 24576
+  log_every: 1
+  ce_batch_size: 1
+  opsd_batch_size: 1
+  g_score: 1
+  n_solve: 1
