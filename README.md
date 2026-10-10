@@ -1,9 +1,7 @@
 # Anonymous supplementary code
 
-Code used for the experiments in *Words, Vectors, and Weights*.
 This archive contains only the scripts and configs needed to reproduce
-those runs. Cluster paths, account names, and logging identities have
-been removed.
+those runs.
 
 ## Hardware (all GPU runs)
 
